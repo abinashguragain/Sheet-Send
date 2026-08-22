@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sheet Send</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-shell">
+    <!-- Masthead -->
+    <header class="popup-masthead">
+      <div class="brand-pill">
+        <span class="brand-badge">SHEET SEND</span>
+      </div>
+      <div class="version-tag">v1.0</div>
+    </header>
+
+    <!-- Toast Notification -->
+    <div id="popupToast" class="popup-toast" style="display: none;"></div>
+
+    <!-- VIEW 1: Main View -->
+    <main id="mainView" class="view-panel">
+      <!-- Google Account Card -->
+      <section class="section-card account-card">
+        <div class="account-info">
+          <div class="field-caption">GOOGLE ACCOUNT</div>
+          <div id="accountEmail" class="account-email">Not connected</div>
+        </div>
+        <div class="account-actions-group">
+          <button type="button" id="authBtn" class="btn btn-xs btn-signal">Connect</button>
+          <button type="button" id="logoutBtn" class="btn btn-xs btn-danger-xs" style="display: none;">Logout</button>
+        </div>
+      </section>
+
+      <!-- Content visible ONLY when user is logged in -->
+      <div id="authenticatedContent" style="display: none;">
+        <!-- Menu Mode Selector -->
+        <section class="section-card">
+          <div class="section-label">RIGHT-CLICK MENU MODE</div>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="menuMode" value="all" id="modeAll" checked>
+              <span class="radio-custom"></span>
+              <span class="radio-text">Show all destinations in menu</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="menuMode" value="primary" id="modePrimary">
+              <span class="radio-custom"></span>
+              <span class="radio-text">Show only my primary destination</span>
+            </label>
+          </div>
+
+          <!-- Primary Destination Dropdown -->
+          <div id="primaryDestContainer" class="primary-select-wrapper">
+            <label for="primaryDestSelect" class="sub-label">PRIMARY DESTINATION</label>
+            <select id="primaryDestSelect" class="form-select" disabled>
+              <option value="">Select a primary destination…</option>
+            </select>
+          </div>
+
+          <!-- Quick Tab Switcher (Visible when primary destination is selected) -->
+          <div id="quickTabSection" class="quick-tab-box" style="display: none;">
+            <div class="quick-tab-header">
+              <div class="sub-label">QUICK TAB SWITCH</div>
+              <button type="button" id="quickTabRefreshBtn" class="btn-refresh-tabs" title="Refresh sheet tabs from Google">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                <span>Refresh Tabs</span>
+              </button>
+            </div>
+            <div class="quick-tab-controls">
+              <select id="quickTabSelect" class="form-select">
+                <option value="">Loading tabs…</option>
+              </select>
+              <div class="quick-tab-manual">
+                <input type="text" id="quickTabManualInput" class="form-input form-input-sm" placeholder="Type existing or new tab name…">
+                <button type="button" id="quickTabManualBtn" class="btn btn-xs btn-amber">Create Tab</button>
+              </div>
+            </div>
+            <div id="quickTabFeedback" class="tab-feedback"></div>
+          </div>
+        </section>
+
+        <!-- Destinations List -->
+        <section class="section-card">
+          <div class="dest-section-header">
+            <div class="section-label">SAVED DESTINATIONS</div>
+            <button type="button" id="openAddBtn" class="btn btn-xs btn-signal">+ Add Destination</button>
+          </div>
+
+          <div id="destinationsContainer" class="destinations-list">
+            <!-- Populated by JS -->
+          </div>
+
+          <div id="emptyDestState" class="empty-state" style="display: none;">
+            <p class="empty-msg">No destinations saved yet.</p>
+            <button type="button" id="emptyAddBtn" class="btn btn-sm btn-signal">+ Add Your First Destination</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer -->
+      <footer class="popup-footer">
+        <a href="#" id="privacyPolicyLink" class="footer-link">Privacy Policy</a>
+      </footer>
+    </main>
+
+    <!-- VIEW 2: Add / Edit Destination View -->
+    <main id="addEditView" class="view-panel" style="display: none;">
+      <div class="view-header">
+        <button type="button" id="backToMainBtn" class="btn btn-icon-back" title="Back">
+          &larr; Back
+        </button>
+        <div id="addEditTitle" class="view-title">Add Destination</div>
+      </div>
+
+      <form id="destForm" class="dest-form">
+        <input type="hidden" id="formDestId">
+        <input type="hidden" id="formSpreadsheetTitle">
+
+        <!-- Nickname -->
+        <div class="form-group">
+          <label for="formNickname" class="form-label">NICKNAME (RIGHT-CLICK MENU)</label>
+          <input type="text" id="formNickname" class="form-input" placeholder="e.g. Work Notes, Research" maxlength="40" required>
+        </div>
+
+        <!-- Spreadsheet URL / ID -->
+        <div class="form-group">
+          <label for="formSpreadsheetInput" class="form-label">GOOGLE SPREADSHEET URL OR ID</label>
+          <div class="input-with-action">
+            <input type="text" id="formSpreadsheetInput" class="form-input" placeholder="Paste Google Sheets link or ID" required>
+            <button type="button" id="formVerifyBtn" class="btn btn-secondary btn-sm">
+              <span class="btn-text">Verify</span>
+              <span class="spinner" style="display: none;"></span>
+            </button>
+          </div>
+          <div id="formVerifyStatus" class="verify-status"></div>
+        </div>
+
+        <!-- Target Tab -->
+        <div class="form-group">
+          <label for="formTabSelect" class="form-label">TARGET TAB (SHEET)</label>
+          <select id="formTabSelect" class="form-select" style="display: none;">
+            <option value="">Select a tab…</option>
+          </select>
+          <input type="text" id="formTabInput" class="form-input" placeholder="Sheet1" value="Sheet1">
+        </div>
+
+        <!-- Enabled Columns -->
+        <div class="form-group">
+          <label class="form-label">DATA COLUMNS TO APPEND</label>
+          <div class="checkbox-list">
+            <label class="checkbox-label locked">
+              <input type="checkbox" id="colText" checked disabled>
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">Selected Text <span class="muted">(Required)</span></span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="colTimestamp" checked>
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">Timestamp (UTC)</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="colUrl" checked>
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">Source Webpage URL</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="colTitle" checked>
+              <span class="checkbox-custom"></span>
+              <span class="checkbox-text">Source Page Title</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="form-actions">
+          <button type="button" id="cancelFormBtn" class="btn btn-outline btn-sm">Cancel</button>
+          <button type="submit" id="saveFormBtn" class="btn btn-signal btn-sm">Save Destination</button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

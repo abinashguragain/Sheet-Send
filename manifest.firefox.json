@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Sheet Send",
+  "version": "1.0.0",
+  "description": "Highlight text on any webpage and append it directly as a new row to Google Sheets.",
+  "icons": {
+    "16": "src/icons/icon-16.png",
+    "32": "src/icons/icon-32.png",
+    "48": "src/icons/icon-48.png",
+    "128": "src/icons/icon-128.png"
+  },
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "scripting",
+    "notifications",
+    "tabs",
+    "identity",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "action": {
+    "default_title": "Sheet Send",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "src/icons/icon-16.png",
+      "32": "src/icons/icon-32.png",
+      "48": "src/icons/icon-48.png",
+      "128": "src/icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "scripts": [
+      "vendor/browser-polyfill.js",
+      "src/background/background.js"
+    ],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sheet-send@abinashg.com.np",
+      "strict_min_version": "109.0"
+    }
+  }
+}
