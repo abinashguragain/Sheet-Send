@@ -1,144 +1,69 @@
-# Sheet Send 📋➡️📊
+# Sheet Send
 
-> A free, 100% client-side cross-browser extension. Highlight text on any webpage, right-click, choose a saved destination from the context menu, and append that text directly as a new row in Google Sheets — with optional timestamp, source URL, and page title columns.
+Highlight text on any webpage, right-click, and send it straight to a Google Sheet. No backend, no server, no cost. Each user signs in with their own Google account.
 
----
+## What it does
 
-## 🌟 Key Features
+Sheet Send is a browser extension for Chrome, Edge, Brave, and Firefox. Select text on any page, right-click, choose a destination, and the text lands as a new row in the Google Sheet you configured. Optional columns capture a timestamp, the source page URL, and the page title.
 
-- **100% Client-Side:** No backend server, no proxy, no cloud hosting fees, zero external telemetry.
-- **Direct OAuth 2.0:** Authenticates directly with your own Google account (no service accounts or JSON keys).
-- **Multi-Destination Support:** Configure multiple Google Sheets and tabs with custom nicknames in the right-click submenu.
-- **Smart Spreadsheet Parser:** Paste full Google Sheets URLs (`https://docs.google.com/spreadsheets/d/...`) or raw IDs.
-- **One-Click Tab Verification:** Real-time verification button fetches and populates sheet tabs dynamically.
-- **First-Run Automatic Header:** Writes column headers (`Text | Timestamp | Source URL | Page Title`) automatically on first append.
-- **Long Text Safety Guard:** Selections over 500 characters trigger an in-page confirmation prompt to avoid accidental massive pastes.
-- **Dual Visual Feedback:** 2-second in-page toast notification + instant extension toolbar icon status badge.
-- **Cross-Browser Sync:** Synchronizes destination configs seamlessly via `storage.sync`.
+Everything runs client-side. There is no server component. The extension talks directly from the browser to the Google Sheets API, using an OAuth token scoped to the signed-in user's own account. The developer of this extension never sees, stores, or has access to any user's data.
 
----
+## Features
 
-## 📁 Repository Structure
+- Right-click "Send to Sheets" on any selected text, on any page
+- A popup interface (click the toolbar icon) for account switching, adding and editing destinations, choosing a primary destination, switching tabs, and toggling between "show all destinations" and "show only my primary destination" in the right-click menu
+- A "Verify" step that checks spreadsheet access and lists real tab names, avoiding typos
+- Create a new tab directly from the popup if the one you want does not exist yet
+- Optional columns: timestamp, source URL, page title, written in a fixed order alongside the selected text
+- An automatic header row, written once per destination
+- A confirmation prompt before sending unusually long selections
+- Cross-browser OAuth: `chrome.identity.getAuthToken` where supported (Chrome, Edge), with a PKCE authorization-code fallback for browsers that lack it (Brave, Firefox, Opera), including silent token refresh with no repeated sign-in prompts
+- Built to be resource-light: the background service worker is event-driven and unloads when idle, with no polling, no keepalive tricks, and no persistent background process
+
+## Tech stack
+
+- Manifest V3, vanilla JavaScript (ES modules), no framework
+- `webextension-polyfill`, bundled locally
+- Google Sheets API v4 (`spreadsheets.get`, `spreadsheets.values.append`, `spreadsheets.batchUpdate` for tab creation)
+- Google OAuth 2.0, two client types: a Chrome Extension client for `chrome.identity.getAuthToken`, and a Web application client (PKCE, no client secret) for `launchWebAuthFlow`
+- `chrome.storage.sync` for destination configuration, `chrome.storage.local` for session/token persistence
+
+## Project structure
 
 ```
 sheet-send/
-├── manifest.chrome.json        # MV3 manifest for Chrome & Edge (Chromium)
-├── manifest.firefox.json       # MV3 manifest for Firefox (Gecko MV3)
-├── manifest.json               # Default Chromium manifest for unpacked loading
+├── manifest.chrome.json
+├── manifest.firefox.json
 ├── src/
-│   ├── background/
-│   │   ├── background.js       # Background service worker: context menus & append routing
-│   │   ├── auth.js             # Chromium & Firefox OAuth 2.0 token management
-│   │   └── sheetsApi.js        # Google Sheets REST API v4 integration
-│   ├── content/
-│   │   ├── confirmDialog.js    # Injected prompt for long text selections (>500 chars)
-│   │   └── toast.js            # In-page 2-second floating feedback notifications
-│   ├── options/
-│   │   ├── options.html        # Options page UI
-│   │   ├── options.css         # Options styling based on design system tokens
-│   │   └── options.js          # Destinations manager, verify logic, and auth handlers
-│   ├── shared/
-│   │   ├── storage.js          # CRUD helpers for storage.sync & storage.session
-│   │   ├── constants.js        # Endpoints, limits, and humanized error mappings
-│   │   └── browserPolyfillLoader.js # Cross-browser polyfill bridge
+│   ├── background/       # service worker: context menu, auth, Sheets API calls
+│   ├── content/           # in-page confirm dialog and toast
+│   ├── popup/              # toolbar popup: account, destinations, settings
+│   ├── options/            # fallback/advanced settings page
+│   ├── shared/             # storage helpers, constants, browser polyfill loader
 │   └── icons/
-│       ├── icon-16.png / icon-32.png / icon-48.png / icon-128.png
-│       ├── icon-success-badge.png
-│       └── icon-error-badge.png
-├── vendor/
-│   └── browser-polyfill.js     # Bundled WebExtension polyfill
-├── scripts/
-│   └── generate_icons.js       # Standalone icon generator
-├── PRIVACY_POLICY.md           # Source privacy policy (host at abinashg.com.np/sheet-send/privacy)
-├── SPECIFICATION.md            # Architecture & product specification
+├── PRIVACY_POLICY.md
+├── BUILD_NOTES.md          # full build and debugging writeup
 └── README.md
 ```
 
----
+## Setup for local development
 
-## 🚀 Getting Started & Local Development
+1. Clone this repository.
+2. Create a Google Cloud project, enable the Google Sheets API.
+3. Configure the OAuth consent screen (External, add the `https://www.googleapis.com/auth/spreadsheets` scope, add yourself as a test user while unpublished).
+4. Create two OAuth clients in that project:
+   - A **Chrome Extension** type client, with its Item ID matching the extension ID Chrome assigns after loading it unpacked.
+   - A **Web application** type client, with `https://<extension-id>.chromiumapp.org/` registered as both an Authorized JavaScript origin (no trailing slash) and an Authorized redirect URI (with trailing slash).
+5. Paste both client IDs into `manifest.chrome.json` (`oauth2.client_id`) and `src/shared/constants.js` (`WEB_AUTH_FLOW_CLIENT_ID`).
+6. Load the extension unpacked: `chrome://extensions` (or the Brave/Edge equivalent) → enable Developer mode → Load unpacked → select this folder.
+7. For Firefox: load `manifest.firefox.json` via `about:debugging` → This Firefox → Load Temporary Add-on, using the same Web application OAuth client with a Firefox-appropriate redirect URI.
 
-### 1. Load Unpacked in Google Chrome / Microsoft Edge / Brave
-1. Open your browser and navigate to `chrome://extensions` (or `edge://extensions`).
-2. Enable **Developer mode** toggle in the top-right corner.
-3. Click **Load unpacked**.
-4. Select this project root folder (`sheet-send`).
-5. Note the **Extension ID** generated by Chrome (e.g. `abcdefghijklmnop...`).
+Full narrative of everything that went wrong during this setup, and why, is in `BUILD_NOTES.md` — worth reading if you hit an OAuth error that looks unfamiliar, since most of the sharp edges here are already documented.
 
-### 2. Load Temporary Add-on in Mozilla Firefox
-1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…**.
-3. Select `manifest.firefox.json` (or copy it to `manifest.json`).
+## License
 
----
+MIT. See `LICENSE`.
 
-## 🔑 Google Cloud Platform & OAuth 2.0 Setup
+## Contributing
 
-To enable Sheet Send to communicate with your Google Sheets, set up an OAuth Client ID in Google Cloud:
-
-### Step 1: Create GCP Project & Enable API
-1. Navigate to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project named **"Sheet Send"**.
-3. Go to **APIs & Services → Library**.
-4. Search for **Google Sheets API** and click **Enable**.
-
-### Step 2: Configure OAuth Consent Screen
-1. Go to **APIs & Services → OAuth consent screen**.
-2. Select User Type: **External** and click **Create**.
-3. Fill in:
-   - **App name:** Sheet Send
-   - **User support email:** Your email (e.g. `support@abinashg.com.np`)
-   - **App logo:** Upload `src/icons/icon-128.png`
-   - **Developer contact information:** Your email
-4. On the **Scopes** page, click **Add or Remove Scopes** and add:
-   - `https://www.googleapis.com/auth/spreadsheets` (Read/Write access to Sheets)
-   - `https://www.googleapis.com/auth/userinfo.email` (Display connected account in options)
-5. On the **Test users** page:
-   - Add your Google account email and any tester accounts.
-
-### Step 3: Create OAuth Client IDs
-
-#### For Chrome / Edge / Chromium:
-1. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
-2. Select **Application type:** `Chrome extension`.
-3. In the **Item ID** field, paste your unpacked Extension ID from `chrome://extensions`.
-4. Click **Create** and copy the resulting `Client ID`.
-5. Open `manifest.chrome.json` and `manifest.json` and paste your Client ID under `oauth2.client_id`:
-   ```json
-   "oauth2": {
-     "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
-     "scopes": [
-       "https://www.googleapis.com/auth/spreadsheets",
-       "https://www.googleapis.com/auth/userinfo.email"
-     ]
-   }
-   ```
-
-#### For Firefox:
-1. Create a second credential with **Application type:** `Web application`.
-2. In **Authorized redirect URIs**, add `https://<YOUR_FIREFOX_EXTENSION_ID>.extensions.allizom.org/` (or the URI returned by `browser.identity.getRedirectURL()`).
-
----
-
-## 📋 How to Use Sheet Send
-
-1. Right-click the extension icon and select **Options** (or click the setup prompt menu item).
-2. Click **Connect Account** to authorize your Google Account.
-3. Click **+ Add Destination**:
-   - Give it a **Nickname** (e.g. "Meeting Notes" or "Articles").
-   - Paste your **Google Sheet URL** or **ID**.
-   - Click **Verify** to validate access and auto-fetch tabs.
-   - Choose the target **Sheet Tab**.
-   - Select which metadata columns to include (`Selected Text`, `Timestamp`, `Source URL`, `Page Title`).
-   - Click **Save Destination**.
-4. Highlight any text on the web, right-click, and click **Sheet Send → [Your Destination]**.
-5. Your text is immediately appended as a new row!
-
----
-
-## 🛡️ Privacy & Compliance
-
-Sheet Send is built for privacy:
-- Source code is 100% open and audit-friendly.
-- Reads and writes only to the spreadsheets you explicitly choose.
-- See [`PRIVACY_POLICY.md`](file:///Users/abinashguragain/Secrets%20-%20Do%20not%20Open/Sheet%20Send/PRIVACY_POLICY.md) for the full policy.
+Issues and pull requests are welcome. This is a small, deliberately dependency-light codebase — plain JS over a framework, a client-side-only architecture over a backend — and contributions that preserve that shape are easiest to review and merge.
