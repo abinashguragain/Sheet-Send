@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sheet Send — Destinations & Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Bar -->
+    <header class="top-bar">
+      <div class="brand-group">
+        <div class="logo-pill">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span class="brand-name">Sheet Send</span>
+        </div>
+        <span class="brand-subtitle">Destinations & Settings</span>
+      </div>
+      <div class="nav-links">
+        <a href="../../PRIVACY_POLICY.md" target="_blank" class="nav-link" id="privacyLink">Privacy Policy</a>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+      <!-- Google Account Status Banner -->
+      <section class="account-card" id="accountCard">
+        <div class="account-info">
+          <div class="account-avatar" id="accountAvatar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div class="account-details">
+            <div class="account-label">Google Account</div>
+            <div class="account-email" id="accountEmail">Not connected</div>
+          </div>
+        </div>
+        <div class="account-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="authBtn">Connect Account</button>
+        </div>
+      </section>
+
+      <!-- Destinations Section -->
+      <section class="destinations-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h1 class="section-title">Saved Destinations</h1>
+            <p class="section-desc">Select text on any page and right-click to append data directly into these configured Google Sheets.</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="openAddModalBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Destination
+          </button>
+        </div>
+
+        <!-- Destination Cards List -->
+        <div class="destinations-grid" id="destinationsList">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-state-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+          </div>
+          <h2 class="empty-state-title">No Destinations Configured</h2>
+          <p class="empty-state-text">Create your first destination to start clipping and sending text directly from your browser to Google Sheets.</p>
+          <button type="button" class="btn btn-primary" id="emptyStateAddBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Destination
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Add / Edit Destination Modal -->
+    <div class="modal-backdrop" id="destinationModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">Add Destination</h2>
+          <button type="button" class="btn-close" id="closeModalBtn" aria-label="Close modal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <form id="destinationForm" novalidate>
+          <input type="hidden" id="destId" value="">
+          <input type="hidden" id="spreadsheetTitle" value="">
+
+          <div class="modal-body">
+            <!-- 1. Nickname -->
+            <div class="form-group">
+              <label for="destNickname" class="form-label">
+                Nickname <span class="required">*</span>
+                <span class="label-hint">(Shown in right-click menu, max 40 chars)</span>
+              </label>
+              <input
+                type="text"
+                id="destNickname"
+                class="form-control"
+                placeholder="e.g. Research Notes, Lead Capture, Quotes"
+                maxlength="40"
+                required
+              >
+              <div class="form-feedback" id="nicknameFeedback"></div>
+            </div>
+
+            <!-- 2. Spreadsheet URL or ID -->
+            <div class="form-group">
+              <label for="destSpreadsheetInput" class="form-label">
+                Google Spreadsheet URL or ID <span class="required">*</span>
+              </label>
+              <div class="input-with-button">
+                <input
+                  type="text"
+                  id="destSpreadsheetInput"
+                  class="form-control"
+                  placeholder="https://docs.google.com/spreadsheets/d/... or bare ID"
+                  required
+                >
+                <button type="button" class="btn btn-amber" id="verifySpreadsheetBtn">
+                  <span class="btn-text">Verify</span>
+                  <span class="spinner" style="display: none;"></span>
+                </button>
+              </div>
+              <div class="verify-status" id="verifyStatus"></div>
+            </div>
+
+            <!-- 3. Tab (Sheet) Name -->
+            <div class="form-group">
+              <label for="destTabSelect" class="form-label">
+                Sheet Tab <span class="required">*</span>
+                <span class="label-hint">(Where rows will be appended)</span>
+              </label>
+              
+              <!-- Populated dropdown (primary after verify) -->
+              <select id="destTabSelect" class="form-control" style="display: none;">
+                <option value="">Select a tab…</option>
+              </select>
+
+              <!-- Fallback text input (before verify) -->
+              <input
+                type="text"
+                id="destTabInput"
+                class="form-control"
+                placeholder="Sheet1 (or click Verify to load tabs)"
+                value="Sheet1"
+                required
+              >
+            </div>
+
+            <!-- 4. Columns to include -->
+            <div class="form-group">
+              <label class="form-label">
+                Columns to Include
+                <span class="label-hint">(Written left-to-right in column order)</span>
+              </label>
+              <div class="checkbox-group">
+                <label class="checkbox-item locked">
+                  <input type="checkbox" id="colText" value="text" checked disabled>
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-label">Selected Text <em>(always included, col A)</em></span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" id="colTimestamp" value="timestamp" checked>
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-label">Timestamp</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" id="colUrl" value="url" checked>
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-label">Source URL</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" id="colTitle" value="title" checked>
+                  <span class="checkbox-custom"></span>
+                  <span class="checkbox-label">Page Title</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="cancelModalBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="saveDestBtn">Save Destination</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-backdrop" id="deleteConfirmModal" style="display: none;">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title">Delete Destination?</h2>
+        </div>
+        <div class="modal-body">
+          <p class="delete-msg" id="deleteDestMsg">Are you sure you want to remove this destination from your context menu?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelDeleteBtn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Global Toast -->
+    <div class="options-toast" id="optionsToast" style="display: none;"></div>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
