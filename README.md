@@ -60,6 +60,10 @@ sheet-send/
 
 Full narrative of everything that went wrong during this setup, and why, is in `BUILD_NOTES.md` — worth reading if you hit an OAuth error that looks unfamiliar, since most of the sharp edges here are already documented.
 
+## Support & Contact
+
+For questions, feedback, or support inquiries, contact `sheetsend@abinashg.com.np`.
+
 ## License
 
 MIT. See `LICENSE`.

@@ -224,7 +224,7 @@ The confirm dialog (`scripting.executeScript` injecting a function that calls `w
 2. APIs & Services → Library → enable **Google Sheets API**.
 3. APIs & Services → OAuth consent screen:
    - User type: **External** (required for public users outside one Workspace org).
-   - App name: Sheet Send. Support email: (user's own email — decide and fill in). App logo: use the 128px icon.
+   - App name: Sheet Send. Support email: sheetsend@abinashg.com.np. App logo: use the 128px icon.
    - Scopes: add `https://www.googleapis.com/auth/spreadsheets`.
    - Add a few test users (your own accounts + any early testers) while still in Testing.
 4. Credentials → Create Credentials → OAuth Client ID:
@@ -255,7 +255,7 @@ Must plainly state, in non-legalese:
 - [ ] Short description (~132 char limit for Chrome).
 - [ ] Full description.
 - [ ] Privacy policy URL (live, before submission).
-- [ ] Support email.
+- [x] Support email: `sheetsend@abinashg.com.np`.
 - [ ] Category: Productivity / Workflow & Planning.
 - [ ] Chrome Web Store $5 one-time developer fee paid.
 - [ ] OAuth verification approved (see §8) — must complete before or alongside store submission; a store listing can be pending review while OAuth verification is also pending, but do not flip the extension to "public" visibility until both are cleared.
@@ -281,6 +281,6 @@ Must plainly state, in non-legalese:
 ## 12. Open Items to Flag Back to the User (not for the agent to silently decide)
 
 - Final public-facing name, if "Sheet Send" is reconsidered before store submission (naming-collision risk noted in §1).
-- Support email address to use across OAuth consent screen, privacy policy, and store listings.
+- Support email address: `sheetsend@abinashg.com.np` (configured).
 - Whether column reordering (drag-and-drop) is wanted for v1 or deferred to v2 (currently deferred per §6.3).
 - Icon/logo design direction — not specified, needs actual visual design input or an agreed simple placeholder approach before store screenshots are produced.

@@ -45,7 +45,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "sheet-send@abinashg.com.np",
+      "id": "sheetsend@abinashg.com.np",
       "strict_min_version": "109.0"
     }
   }

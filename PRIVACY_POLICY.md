@@ -69,4 +69,4 @@ Since Sheet Send stores no data on any server:
 If you have questions regarding this Privacy Policy or Sheet Send, please contact:
 - **Developer:** Abinash Guragain
 - **Website:** [abinashg.com.np](https://abinashg.com.np)
-- **Support Email:** `support@abinashg.com.np`
+- **Support Email:** `sheetsend@abinashg.com.np`
