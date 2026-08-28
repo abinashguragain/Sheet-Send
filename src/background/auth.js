@@ -1,8 +1,8 @@
 /**
  * Cross-browser OAuth 2.0 authentication service for Sheet Send.
  * Supports chrome.identity.getAuthToken for Chromium browsers and
- * falls back to PKCE Authorization Code flow + refresh tokens with layered fallback
- * for Brave, Opera, Vivaldi, Firefox, etc.
+ * uses OAuth 2.0 Implicit Grant (response_type=token) with silent renewal
+ * via launchWebAuthFlow for Brave, Opera, Vivaldi, Firefox, etc.
  * Avoids any embedded client secret.
  */
 
@@ -99,6 +99,16 @@ function generateRandomString(length = 64) {
     .map((v) => charset[v % charset.length])
     .join("");
 }
+
+/* ==========================================================================
+ * PKCE Authorization Code Flow Helpers (Unused / Archived)
+ * NOTE: Google's OAuth 2.0 endpoint for 'Web application' client types
+ * requires a client_secret during the authorization_code exchange, even when
+ * PKCE (code_challenge / code_verifier) is used. Since Sheet Send intentionally
+ * avoids embedding a client secret in client-side extension code, PKCE token
+ * exchange fails. These functions are preserved here for future reference if a
+ * backend token proxy or client_secret trade-off is revisited.
+ * ========================================================================== */
 
 /**
  * Generates PKCE code challenge from verifier using SHA-256.
@@ -231,8 +241,13 @@ async function getChromiumAuthToken(interactive = true, switchAccount = false) {
 }
 
 /**
- * Authenticates using launchWebAuthFlow with PKCE Authorization Code flow
- * and layered fallback. Avoids embedded client secret.
+ * Authenticates using launchWebAuthFlow with OAuth 2.0 Implicit Grant (response_type=token).
+ * Primary flow for non-Chrome-native browsers (Brave, Firefox, Opera, Edge without sign-in).
+ * 
+ * First attempts silent re-authentication (interactive: false, prompt: none) when token
+ * is expired. If silent renewal fails, falls back to a visible interactive popup.
+ * Avoids any embedded client secret.
+ * 
  * @param {boolean} interactive
  * @param {boolean} switchAccount
  * @returns {Promise<string|null>}
@@ -241,29 +256,18 @@ async function getWebAuthFlowToken(interactive = true, switchAccount = false) {
   const now = Date.now();
   const session = await getCachedSession();
 
-  // 1. If not switching and cached token is still valid (>60s remaining), return it immediately
+  // 1. If not switching accounts and cached token is still valid (>60s remaining), return it immediately
   if (!switchAccount && session?.token && session.expiresAt > now + 60000) {
     return session.token;
   }
 
-  // 2. If token is expired but we have a refresh_token, try refreshing silently first
-  if (!switchAccount && session?.refreshToken) {
-    try {
-      const refreshed = await refreshAccessToken(session.refreshToken);
-      if (refreshed.access_token) {
-        const expiresIn = parseInt(refreshed.expires_in || "3600", 10);
-        await cacheToken(refreshed.access_token, expiresIn, session.refreshToken);
-        return refreshed.access_token;
-      }
-    } catch (err) {
-      console.warn("PKCE refreshAccessToken failed, attempting fallback...", err.message);
-    }
-  }
-
   const redirectUri = browserApi.identity.getRedirectURL();
 
-  // 3. If non-interactive and no refresh token or refresh failed, try silent implicit re-auth
-  if (!interactive) {
+  // 2. Silent re-auth attempt:
+  // When stored token is expired or missing, retry with launchWebAuthFlow({ interactive: false })
+  // and prompt=none before falling back to a visible interactive popup.
+  // This provides seamless silent renewal as long as the user has an active Google session in the browser.
+  if (!switchAccount) {
     try {
       const silentAuthUrl = new URL(GOOGLE_OAUTH_AUTH_URL);
       silentAuthUrl.searchParams.set("client_id", WEB_AUTH_FLOW_CLIENT_ID);
@@ -279,96 +283,80 @@ async function getWebAuthFlowToken(interactive = true, switchAccount = false) {
 
       if (silentResponseUrl) {
         const parsed = new URL(silentResponseUrl);
-        const hashParams = new URLSearchParams(parsed.hash.slice(1));
-        const token = hashParams.get("access_token");
-        const exp = parseInt(hashParams.get("expires_in") || "3600", 10);
+        const hashParams = new URLSearchParams(parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash);
+        const queryParams = parsed.searchParams;
+        const token = hashParams.get("access_token") || queryParams.get("access_token");
+        const exp = parseInt(hashParams.get("expires_in") || queryParams.get("expires_in") || "3600", 10);
         if (token) {
           await cacheToken(token, exp);
           return token;
         }
       }
     } catch {
-      // Silent auth not possible without user interaction
+      // Silent auth not possible without user interaction (e.g. session expired, consent required)
     }
+  }
+
+  // 3. If caller explicitly requested non-interactive and silent renewal didn't succeed, return null
+  if (!interactive) {
     return null;
   }
 
-  // 4. Interactive flow: Primary path is PKCE Authorization Code Flow
+  // 4. Primary method: OAuth 2.0 Implicit Grant (response_type=token)
   const state = generateRandomString(32);
-  const codeVerifier = generateRandomString(64);
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  const authUrl = new URL(GOOGLE_OAUTH_AUTH_URL);
+  authUrl.searchParams.set("client_id", WEB_AUTH_FLOW_CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "token");
+  authUrl.searchParams.set("scope", `${SHEETS_SCOPE} ${USERINFO_EMAIL_SCOPE}`);
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("prompt", switchAccount ? "select_account" : "consent");
 
-  const pkceAuthUrl = new URL(GOOGLE_OAUTH_AUTH_URL);
-  pkceAuthUrl.searchParams.set("client_id", WEB_AUTH_FLOW_CLIENT_ID);
-  pkceAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  pkceAuthUrl.searchParams.set("response_type", "code");
-  pkceAuthUrl.searchParams.set("code_challenge", codeChallenge);
-  pkceAuthUrl.searchParams.set("code_challenge_method", "S256");
-  pkceAuthUrl.searchParams.set("access_type", "offline"); // Required for refresh_token
-  pkceAuthUrl.searchParams.set("scope", `${SHEETS_SCOPE} ${USERINFO_EMAIL_SCOPE}`);
-  pkceAuthUrl.searchParams.set("state", state);
-  pkceAuthUrl.searchParams.set("prompt", switchAccount ? "select_account" : "consent");
+  /*
+   * =========================================================================
+   * UNUSED / ARCHIVED PKCE PATH:
+   * Google requires a client_secret for 'Web application' client types during
+   * authorization_code exchange, even when PKCE (code_challenge / code_verifier)
+   * is supplied. Because Sheet Send intentionally avoids embedding client secrets,
+   * exchangeCodeForToken() consistently fails with unauthorized_client.
+   *
+   * If a backend token-exchange proxy or client_secret approach is introduced later,
+   * this path can be restored:
+   *
+   * const codeVerifier = generateRandomString(64);
+   * const codeChallenge = await generateCodeChallenge(codeVerifier);
+   * authUrl.searchParams.set("response_type", "code");
+   * authUrl.searchParams.set("code_challenge", codeChallenge);
+   * authUrl.searchParams.set("code_challenge_method", "S256");
+   * authUrl.searchParams.set("access_type", "offline");
+   *
+   * const responseUrl = await browserApi.identity.launchWebAuthFlow({ url: authUrl.toString(), interactive: true });
+   * const parsedUrl = new URL(responseUrl);
+   * const code = parsedUrl.searchParams.get("code");
+   * const tokenData = await exchangeCodeForToken(code, codeVerifier, redirectUri);
+   * =========================================================================
+   */
 
-  try {
-    const responseUrl = await browserApi.identity.launchWebAuthFlow({
-      url: pkceAuthUrl.toString(),
-      interactive: true
-    });
-
-    if (!responseUrl) {
-      throw new Error("Authorization was cancelled or returned empty response");
-    }
-
-    const parsedUrl = new URL(responseUrl);
-    const code = parsedUrl.searchParams.get("code");
-
-    if (code) {
-      try {
-        const tokenData = await exchangeCodeForToken(code, codeVerifier, redirectUri);
-        if (tokenData.access_token) {
-          const expiresIn = parseInt(tokenData.expires_in || "3600", 10);
-          await cacheToken(tokenData.access_token, expiresIn, tokenData.refresh_token || null);
-          return tokenData.access_token;
-        }
-      } catch (exchangeErr) {
-        console.warn("PKCE code exchange failed, falling back to implicit grant:", exchangeErr.message);
-      }
-    }
-  } catch (err) {
-    if (err.message && (err.message.includes("cancelled") || err.message.includes("User closed"))) {
-      throw err;
-    }
-    console.warn("PKCE authorization flow failed, attempting implicit grant fallback:", err.message);
-  }
-
-  // 5. Fallback path: Implicit Flow (response_type=token)
-  const implicitAuthUrl = new URL(GOOGLE_OAUTH_AUTH_URL);
-  implicitAuthUrl.searchParams.set("client_id", WEB_AUTH_FLOW_CLIENT_ID);
-  implicitAuthUrl.searchParams.set("redirect_uri", redirectUri);
-  implicitAuthUrl.searchParams.set("response_type", "token");
-  implicitAuthUrl.searchParams.set("scope", `${SHEETS_SCOPE} ${USERINFO_EMAIL_SCOPE}`);
-  implicitAuthUrl.searchParams.set("state", state);
-  implicitAuthUrl.searchParams.set("prompt", switchAccount ? "select_account" : "consent");
-
-  const fallbackResponseUrl = await browserApi.identity.launchWebAuthFlow({
-    url: implicitAuthUrl.toString(),
+  const responseUrl = await browserApi.identity.launchWebAuthFlow({
+    url: authUrl.toString(),
     interactive: true
   });
 
-  if (!fallbackResponseUrl) {
+  if (!responseUrl) {
     throw new Error("Authorization was cancelled or returned empty response");
   }
 
-  const parsedFallback = new URL(fallbackResponseUrl);
-  const hashParams = new URLSearchParams(parsedFallback.hash.slice(1));
-  const queryParams = parsedFallback.searchParams;
+  const parsedUrl = new URL(responseUrl);
+  const hashParams = new URLSearchParams(parsedUrl.hash.startsWith("#") ? parsedUrl.hash.slice(1) : parsedUrl.hash);
+  const queryParams = parsedUrl.searchParams;
 
   const accessToken = hashParams.get("access_token") || queryParams.get("access_token");
   const expiresIn = parseInt(hashParams.get("expires_in") || queryParams.get("expires_in") || "3600", 10);
 
   if (!accessToken) {
     const errorParam = hashParams.get("error") || queryParams.get("error");
-    throw new Error(`Google Auth Error: ${errorParam || "Failed to parse access token"}`);
+    const errorDesc = hashParams.get("error_description") || queryParams.get("error_description");
+    throw new Error(`Google Auth Error: ${errorDesc || errorParam || "Failed to parse access token"}`);
   }
 
   await cacheToken(accessToken, expiresIn);
