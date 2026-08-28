@@ -25,7 +25,7 @@ Everything runs client-side. There is no server component. The extension talks d
 - Manifest V3, vanilla JavaScript (ES modules), no framework
 - `webextension-polyfill`, bundled locally
 - Google Sheets API v4 (`spreadsheets.get`, `spreadsheets.values.append`, `spreadsheets.batchUpdate` for tab creation)
-- Google OAuth 2.0, two client types: a Chrome Extension client for `chrome.identity.getAuthToken`, and a Web application client (PKCE, no client secret) for `launchWebAuthFlow`
+- Google OAuth 2.0, two client types: a Chrome Extension client for `chrome.identity.getAuthToken` (Chrome, Edge), and a Web application client for `launchWebAuthFlow` (Brave, Firefox, Opera), using the implicit grant with silent `prompt=none` re-authentication to avoid repeated sign-in prompts without requiring a stored client secret
 - `chrome.storage.sync` for destination configuration, `chrome.storage.local` for session/token persistence
 
 ## Project structure
@@ -42,9 +42,15 @@ sheet-send/
 │   ├── shared/             # storage helpers, constants, browser polyfill loader
 │   └── icons/
 ├── PRIVACY_POLICY.md
+├── VISION.md
 ├── BUILD_NOTES.md          # full build and debugging writeup
+├── LICENSE
 └── README.md
 ```
+
+## Where This Is Headed
+
+The right-click text capture is the foundation, not the end goal. The extension's intended core use case is lead collection — visiting a profile on a platform like Instagram, LinkedIn, TikTok, or Facebook and capturing structured profile data with a single pre-configured click, no text selection required. See `VISION.md` for the full roadmap, including custom column names, domain-based destination routing, and a planned "Save Link" reading-list feature.
 
 ## Setup for local development
 
